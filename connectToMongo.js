@@ -1,12 +1,13 @@
 
 var mongoose = require('mongoose');
-var dbUrl='mongodb://localhost/test';
-mongoose.connect(dbUrl);
+var dbUrl='mongodb://localhost/myPicsArt';
+var con = mongoose.createConnection(dbUrl);
 
 
 var mySchema=mongoose.Schema;
 
 var userSchema=new mySchema({
+    id: Number,
     name: String,
     sname: String,
     email: String,
@@ -17,7 +18,7 @@ var userSchema=new mySchema({
     //photos: [{data: buffer,contentType: String}]
 });
 
-var myModel = mongoose.model('users',userSchema);
+var users = con.model('users',userSchema);
 
-module.exports.myModel=myModel
+module.exports.users = users;
 
