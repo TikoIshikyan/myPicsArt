@@ -37,6 +37,60 @@ module.exports.update = function(user_data, done){
     });*/
 }
 
+module.exports.addFollowing = function(u_id, f_id, done){
+    mongo.users.findOne({id: u_id}, function(err, user){
+        if(err){
+            return done(err);
+        }else{
+            user.followings.push(f_id, function(err){
+                if(err){
+                    return done(err);
+                }
+                mongo.users.findOne({id: f_id}, function(err, user) {
+                    if (err) {
+                        return done(err);
+                    } else {
+                        user.followers.push(id, function (err) {
+                            if (err) {
+                                return done(err);
+                            }
+                            return done(null);
+                        });
+
+                    }
+                });       // return done(null);
+            });
+        }
+    });
+}
+
+module.exports.removeFollowing = function(u_id, f_id, done){
+    mongo.users.findOne({id: u_id}, function(err, user){
+        if(err){
+            return done(err);
+        }else{
+            user.followings.forEach(function(following, index, array){
+                if(following==f_id){
+                    array.splice(index, 1, function(err){
+                        if(err){
+                            return done(err);
+                        }
+                        return done(null);
+                    });
+                }
+            });
+        }
+    })
+}
+
+module.exports.getUser = function(user_id, done){
+    mongo.users.findOne({id: user_id}, function(err, user){
+        if(err){
+           return done(err);
+        }
+        return user;
+    })
+}
 
 
 

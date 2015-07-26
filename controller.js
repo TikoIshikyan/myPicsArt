@@ -73,8 +73,54 @@ app.post('/addFollower',function(req, res){
     var userId = req.body.id;
     var followerId = req.body.followerId;
 
+    queries.addFollower(userId, followerId, function(err1,err2){
+        if(err){
+            return res.send('Error = '+ err);
+        }
+        return res.send('success');
+    })
 
 })
+
+app.post('/removeFollower',function(req, res){
+
+    var userId = req.body.id;
+    var followerId = req.body.followerId;
+
+    queries.removeFollower(userId, followerId, function(err){
+        if(err){
+            return res.send('Error = '+ err);
+        }
+        return res.send('success');
+    })
+
+})
+
+app.post('/addFollowing',function(req, res){
+
+    var userId = req.body.id;
+    var followerId = req.body.followerId;
+
+    queries.addFollowing(userId, followerId, function(err){
+        if(err){
+            return res.send('Error = ' + err);
+        }
+        return res.send('success');
+    })
+
+})
+
+app.get('/getUser', function(req, res){
+    var user_id = req.body.id;
+    queries.getUser(user_id, function(err){
+        if(err){
+            return res.send("Error + " + err);
+        }
+
+    });
+})
+
+
 
 
 
