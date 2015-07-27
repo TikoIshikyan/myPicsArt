@@ -6,8 +6,6 @@ var app=express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
-//console.log(Date.now())
-
 app.get('/',function(req,res){
     res.send('this is myPicsArt host');
 })
@@ -18,25 +16,31 @@ app.post('/createUser',function(req,res){
     var user=new mongo.users();
     user.name=req.body.name;
     user.sname=req.body.sname;
-    user.email=req.body.email;
+    user.email=req.body.email + "";
     user.password=req.body.password;
 
     mongo.users.findOne({}, {}, { sort: { 'id' : -1 } }, function(err, last_data) {
         if(last_data == null){
             user.id = 1;
-            queries.add(user, function(err){
+            queries.add(user, function(err, message){
                 if(err){
                     return res.send('Error = ' + err);
                 }
-                return res.send(user.name + '  your acount is successfully created');
+                if(message){
+                    return res.send(message);
+                }
+                return res.send(user.name + '  your account is successfully created');
             });
         }else{
             user.id = last_data.id+1;
-            queries.add(user, function(err){
+            queries.add(user, function(err, message){
                 if(err){
                     return res.send('Error = ' + err)
                 }
-                return res.send(user.name + '  your acount is successfully created');
+                if(message){
+                    return res.send(message);
+                }
+                return res.send(user.name + '  your account is successfully created');
             });
         }
     });
@@ -68,6 +72,68 @@ app.post('/updateUser',function(req,res){
 
 })
 
+
+
+app.post('/addFollowing',function(req, res){
+
+    var userId = req.body.id;
+    var followingId = req.body.followingId;
+
+    queries.addFollowing(userId, followingId, function(err,messege){
+        if(err){
+            return res.send('Error = ' + err);
+        }
+        if(messege){
+            return res.send(messege);
+        }
+        return res.send('success');
+    })
+
+})
+
+
+app.post('/removeFollowing',function(req, res){
+
+    var userId = req.body.id;
+    var followingId = req.body.followingId;
+
+    queries.removeFollowing(userId, followingId, function(err, message){
+        if(err){
+            return res.send('Error = '+ err);
+        }
+        if(message){
+            return res.send(message);
+        }
+        return res.send('success');
+    })
+
+})
+
+app.get('/getUser', function(req, res){
+    var user_id = req.query.id;
+
+    queries.getUser(user_id, function(err, user){
+        if(err){
+            return res.send("Error + " + err);
+        }
+        res.write("id: " + user.id + "\n");
+        res.write("name: " + user.name + "\n");
+        res.write("surname: " + user.sname + "\n");
+     //   res.write(user.sname);
+        res.write("email: " + user.email + "\n");
+      //  res.write(user.email + "");
+        res.write("followers: " + user.followers.toString() + "\n");
+        res.write("followings: " + user.followings.toString() + "\n");
+        res.end();
+    });
+})
+
+
+
+
+
+/*
+
 app.post('/addFollower',function(req, res){
 
     var userId = req.body.id;
@@ -82,6 +148,7 @@ app.post('/addFollower',function(req, res){
 
 })
 
+
 app.post('/removeFollower',function(req, res){
 
     var userId = req.body.id;
@@ -95,36 +162,7 @@ app.post('/removeFollower',function(req, res){
     })
 
 })
-
-app.post('/addFollowing',function(req, res){
-
-    var userId = req.body.id;
-    var followerId = req.body.followerId;
-
-    queries.addFollowing(userId, followerId, function(err){
-        if(err){
-            return res.send('Error = ' + err);
-        }
-        return res.send('success');
-    })
-
-})
-
-app.get('/getUser', function(req, res){
-    var user_id = req.body.id;
-    queries.getUser(user_id, function(err){
-        if(err){
-            return res.send("Error + " + err);
-        }
-
-    });
-})
-
-
-
-
-
-
+*/
 
 app.listen(3000);
 
