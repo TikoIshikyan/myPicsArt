@@ -1,18 +1,7 @@
 var mongo = require('./connectToMongo');
 
 module.exports.add = function (user, done) {
-   /*
-    var email = user.email;
-    if(!~email.indexOf('@')){
-        return done(null, "incorrect email format");
-    }
-    var afterAtSign = email.substring(email.indexOf("@"));
-    if(afterAtSign.inde)
 
-//  user.email.forEach(function(char, index, email){
-//        if(~)
-//  })
-*/
     user.save(function (err, user, att) {
         if (err) {
             return done(err);
@@ -27,8 +16,10 @@ module.exports.update = function (user_data, done) {
         if (err) {
             return done(err);
         }
-        user.name = user_data.name;
+        user.photos.push(user_data.photo);
+        console.log(user.photos.length);
         user.save(function (err) {
+            console.log(user.photos.length);
             if (err) {
                 return done(err);
             }
