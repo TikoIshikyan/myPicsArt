@@ -6,10 +6,19 @@ var bodyParser = require('body-parser');
 var app = express();
 
 app.use(bodyParser.urlencoded({extended: true}));
+app.set('view engine', 'ejs');
 
-app.get('/', function (req, res) {
-    res.send('this is myPicsArt host');
+app.get('/form', function (req, res) {
+    res.render('form')
+    //res.send('this is myPicsArt host');
 })
+
+app.post('/catch', function (req, res) {
+    console.log(req.body.name);
+    if (req.body.name == 'Vahram')
+        res.redirect('/users/1')
+})
+
 
 app.post('/users', function (req, res) {
 
@@ -124,8 +133,7 @@ app.get('/users/:id', function (req, res) {
     //var user_id = req.query.id;
     var user_id = req.param('id');
 
-    console.log(req.headers);
-
+    //console.log(req.headers);
 
 
     queries.getUser(user_id, function (err, user) {
@@ -144,11 +152,11 @@ app.get('/users/:id', function (req, res) {
         //res.write("followers: " + user.followers.toString() + "\n");
         //res.write("followings: " + user.followings.toString() + "\n");
 
-       // res.contentType(user.photos[1].contentType);
+        // res.contentType(user.photos[1].contentType);
         res.contentType('jpg');
         res.write(user.photos[1].data);
         //res.contentType('text/plain');
-      //  res.write("svaav");
+        //  res.write("svaav");
 
         //res.write(user.photos[1].data);
 
@@ -156,12 +164,6 @@ app.get('/users/:id', function (req, res) {
         res.end()
     });
 })
-
-
-
-
-
-
 
 
 /*
