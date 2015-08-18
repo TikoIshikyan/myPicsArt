@@ -2,35 +2,145 @@ var mongo = require('./connectToMongo');
 var queries = require('./queries');
 var express = require('express');
 var fs = require('fs');
+var passport = require('passport');
+var LocalStrategy = require('passport-local');
 var bodyParser = require('body-parser');
+var crypto = require('crypto');
+var session = require('express-session');
+var cookieParser = require('cookie-parser');
+
 var app = express();
 
+
+app.use(cookieParser());
 app.use(bodyParser.urlencoded({extended: true}));
+app.use(session({
+    secret: "shhhh",
+    rolling: true,
+    saveUninitialized: true,
+    resave: true,
+    cookie: {maxAge: 30000}
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.set('view engine', 'ejs');
 
-app.get('/form', function (req, res) {
-    res.render('form')
-    //res.send('this is myPicsArt host');
+passport.serializeUser(function (user, done) {
+    done(null, user.id);
+});
+
+passport.deserializeUser(function (id, done) {
+    mongo.users.findOne({id: id}, function (err, user) {
+        done(err, user);
+    });
+});
+
+var encoding = function (password) {
+    return crypto.createHash('md5').update(password).digest('hex');
+}
+
+var isValidPassword = function (user, password) {
+    return encoding(password) == user.password;
+}
+
+passport.use(new LocalStrategy(
+    function (username, password, done) {
+        mongo.users.findOne({username: username}, function (err, user) {
+            if (err) {
+                return done(err);
+            }
+            if (!user) {
+                return done(null, false, {message: 'Incorrect username.'});
+            }
+            if (!isValidPassword(user, password)) {
+                return done(null, false, {message: "Incorrect password."});
+            }
+
+            return done(null, user);
+        });
+    }
+));
+
+app.get('/logout', function (req, res) {
+    req.logout();
+    console.log("after logout");
+    console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
+    console.log("cookies == " + JSON.stringify(req.cookies));
+    console.log("headers == " + JSON.stringify(req.headers));
+    res.redirect('/login');
+});
+
+app.get('/login', function (req, res) {
+    console.log("in login");
+    console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
+    console.log("cookies == " + JSON.stringify(req.cookies));
+    console.log("headers == " + JSON.stringify(req.headers));
+
+    //res.cookie('var', "popoxakan2");
+
+    res.render('form');
 })
 
-app.post('/catch', function (req, res) {
-    console.log(req.body.name);
-    if (req.body.name == 'Vahram')
-        res.redirect('/users/1')
-})
+app.post('/login', function (req, res) {
+        passport.authenticate('local', function (err, user, info) {
+            if (err) {
+                return res.statusCode(400);
+            } else if (!user) {
+                console.log('message: ' + info.message);
+                return res.redirect('/login')
+            } else {
+                req.logIn(user, function (err) {
+                    if (err) {
+                        return console.log("Error");
+                    }
+                    return res.redirect('/users/' + user.id);
+                });
+            }
+        })(req, res)
+    }
+);
 
+var isAuthenticated = function (req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.redirect('/login');
+}
+
+var titleToTags = function (title) {
+    var arrSplitedBySharp = title.split('#');
+    var tags = [];
+    if (arrSplitedBySharp.length > 1) {
+        arrSplitedBySharp.forEach(function (elem, index, arr) {
+            if (index != 0) {
+                tags.push(elem.split(" ")[0]);
+            }
+        })
+    }
+    return tags;
+}
 
 app.post('/users', function (req, res) {
 
     var user = new mongo.users();
     var imgPath = req.body.imgUrl;
-    var contentType = imgPath.substring(req.body.imgUrl.lastIndexOf(".") + 1);
+    var contentType = imgPath.substring(imgPath.lastIndexOf(".") + 1);
+    var title = req.body.title;
+
 
     user.name = req.body.name;
     user.sname = req.body.sname;
     user.email = req.body.email + "";
-    user.password = req.body.password;
-    user.photos.push({data: fs.readFileSync(imgPath), contentType: contentType});
+    user.username = req.body.username;
+    user.password = encoding(req.body.password);
+    user.photos.push({
+        data: fs.readFileSync(imgPath),
+        contentType: contentType,
+        title: title,
+        tags: titleToTags(title),
+        id: 0
+    });
 
 
     mongo.users.findOne({}, {}, {sort: {'id': -1}}, function (err, last_data) {
@@ -58,41 +168,84 @@ app.post('/users', function (req, res) {
             });
         }
     });
-    /*
-     user.id=Date.now();
-     queries.add(user, function(err){
-     if(err){
-     return res.send('Error = ' + err)
-     }
-     return res.send(user.name + '  your acount is successfully created');
-     });
-     */
-
 })
 
-app.put('/users/:id', function (req, res) {
+app.get('/users/:id/photos', isAuthenticated, function (req, res) {
+    req.user.photos.forEach(function (photo) {
+        if (photo.tags.indexOf(req.query.tags) != -1) {
+            res.write(photo.title + "\n");
+        }
+    })
+    res.end();
+})
 
+app.post('/users/:id/photos', function (req, res) {
+
+    var userId = req.user.id;
     var imgPath = req.body.imgUrl;
-    var contentType = imgPath.substring(req.body.imgUrl.lastIndexOf(".") + 1);
+    var contentType = imgPath.substring(imgPath.lastIndexOf(".") + 1);
+    var title = req.body.title;
+    var photoId;
+
+    mongo.users.findOne({id: userId}, {}, function(err, user){
+        if(err){
+           return res.send(err);
+        }
+        if(user.photos.length > 0) {
+            photoId = user.photos[user.photos.length - 1].id;
+        }else{
+            photoId = 0;
+        }
+
+    })
 
     var user = {
-        id: req.params.id,
-        photo: {data: fs.readFileSync(imgPath), contentType: contentType}
+        id: req.user.id,
+        photo: {data: fs.readFileSync(imgPath), contentType: contentType, title: title, tags: titleToTags(title), id: photoId}
     };
 
-    queries.update(user, function (err) {
+    queries.addPhoto(user, function (err) {
         if (err) {
             return res.send('Error = ' + err);
         }
         return res.send('User successfully updated');
     });
+})
+
+app.put('/users/:id/photos/:p_id', function (req, res) {
+
+    var title = req.body.title;
+
+    var user = {
+        id: req.user.id,
+        photo: {id: req.params.p_id, title: title, tags: titleToTags(title)}
+    };
+
+    queries.updatePhoto(user, function (err) {
+        if (err) {
+            return res.send('Error = ' + err);
+        }
+        return res.send('User successfully updated');
+    });
+})
+
+app.get('/users/:id/photos/:p_id/comments', function(res, req){
 
 })
 
+app.post('/users/:id/photos/:p_id/comments', function (req, res) {
 
-app.put('/users/:id/following', function (req, res) {
+})
 
-    console.log("mtav")
+app.put('/users/:id/photos/:p_id/comments/:c_id', function(req, res){
+
+})
+
+app.delete('/users/:id/photos/:p_id/comments/:c_id', function(req, res){
+
+})
+
+app.post('/users/:id/following', function (req, res) {
 
     var userId = req.params.id;
     var followingId = req.body.followingId;
@@ -127,14 +280,19 @@ app.delete('/users/:id/following', function (req, res) {
 
 })
 
-app.get('/users/:id', function (req, res) {
+app.get('/users/:id', isAuthenticated, function (req, res) {
+
+    req.session.var = "arajin";
+    console.log("in users");
+    console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
+    console.log("cookies == " + JSON.stringify(req.cookies));
+    console.log("headers == " + JSON.stringify(req.headers));
+
 
     //var user_id = req.params.id;
     //var user_id = req.query.id;
-    var user_id = req.param('id');
-
-    //console.log(req.headers);
-
+    //var user_id = req.param('id');
+    var user_id = req.user.id;
 
     queries.getUser(user_id, function (err, user) {
         if (err) {
@@ -142,47 +300,22 @@ app.get('/users/:id', function (req, res) {
         }
 
         //console.log(user);
-
-        //res.write("id: " + user.id + "\n");
-        //res.write("name: " + user.name + "\n");
-        //res.write("surname: " + user.sname + "\n");
-        //   //res.write(user.sname);
-        //res.write("email: " + user.email + "\n");
-        //   //res.write(user.email + "");
-        //res.write("followers: " + user.followers.toString() + "\n");
-        //res.write("followings: " + user.followings.toString() + "\n");
-
-        // res.contentType(user.photos[1].contentType);
-        res.contentType('jpg');
-        res.write(user.photos[1].data);
-        //res.contentType('text/plain');
-        //  res.write("svaav");
-
+        res.write("id: " + user.id + "\n");
+        res.write("name: " + user.name + "\n");
+        res.write("surname: " + user.sname + "\n");
+        //res.write(user.sname);
+        res.write("email: " + user.email + "\n");
+        //res.write(user.email + "");
+        res.write("followers: " + user.followers.toString() + "\n");
+        res.write("followings: " + user.followings.toString() + "\n");
+        //res.contentType('jpg');
         //res.write(user.photos[1].data);
-
-
+        //res.write(user.photos[1].data);
         res.end()
     });
 })
 
-
 /*
-
- app.post('/addFollower',function(req, res){
-
- var userId = req.body.id;
- var followerId = req.body.followerId;
-
- queries.addFollower(userId, followerId, function(err1,err2){
- if(err){
- return res.send('Error = '+ err);
- }
- return res.send('success');
- })
-
- })
-
-
  app.post('/removeFollower',function(req, res){
 
  var userId = req.body.id;
@@ -194,7 +327,6 @@ app.get('/users/:id', function (req, res) {
  }
  return res.send('success');
  })
-
  })
  */
 
