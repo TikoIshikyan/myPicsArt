@@ -35,16 +35,15 @@ module.exports.updatePhoto = function (user_data, done) {
             return done(err);
         }
 
-        user.photos.forEach(function (photo, index, arr) {
-            if (photo.id == user_data.photo.id) {
-                photo.title = user_data.photo.title;
-                photo.tags = user_data.photo.tags;
-                return;
+        for (var i = 0; i < user.photos.length; i++) {
+            if (user.photos[i].id == user_data.photo.id) {
+                user.photos[i].title = user_data.photo.title;
+                user.photos[i].tags = user_data.photo.tags;
+                break;
             }
-        });
+        }
 
         user.save(function (err) {
-            console.log(user.photos.length);
             if (err) {
                 return done(err);
             }
@@ -62,6 +61,108 @@ module.exports.updatePhoto = function (user_data, done) {
      }
      res.end();
      });*/
+}
+
+module.exports.getComments = function (p_id, owner_id, done) {
+    mongo.users.findOne({id: owner_id}, {}, function (err, user) {
+
+        if (err) {
+            return done(err, null);
+        }
+
+        for (var i = 0; i < user.photos.length; i++) {
+            if (user.photos[i].id == p_id) {
+                return done(null, user.photos[i].comments);
+            }
+        }
+    })
+}
+
+module.exports.addComment = function (comment, p_id, owner_id, done) {
+    mongo.users.findOne({id: owner_id}, {}, function (err, user) {
+
+        if (err) {
+            return done(err);
+        }
+
+        for (var i = 0; i < user.photos.length; i++) {
+            if (user.photos[i].id == p_id) {
+                user.photos[i].comments.push(comment);
+                break;
+            }
+        }
+
+        user.save(function (err) {
+            if (err) {
+                return done(err);
+            }
+            return done(null);
+        });
+    })
+}
+
+module.exports.updateComment = function (comment, p_id, owner_id, c_id, done) {
+    mongo.users.findOne({id: owner_id}, {}, function (err, user) {
+
+        if (err) {
+            return done(err);
+        }
+
+        for (var i = 0; i < user.photos.length; i++) {
+            if (user.photos[i].id == p_id) {
+                for (var j = 0; j < user.photos[i].comments.length; j++) {
+                    if (user.photos[i].comments[j].id == c_id) {
+                        if (user.photos[i].comments[j].author == comment.author) {
+                            user.photos[i].comments[j].body = comment.body;
+                            break;
+                        }else{
+                            return done(null, "you can not edit this comment");
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        user.save(function (err) {
+            if (err) {
+                return done(err);
+            }
+            return done(null);
+        });
+    })
+}
+
+module.exports.deleteComment = function(p_id, owner_id, c_id, author, done){
+    mongo.users.findOne({id: owner_id}, {}, function (err, user) {
+
+        if (err) {
+            return done(err);
+        }
+
+        for (var i = 0; i < user.photos.length; i++) {
+            if (user.photos[i].id == p_id) {
+                for (var j = 0; j < user.photos[i].comments.length; j++) {
+                    if (user.photos[i].comments[j].id == c_id) {
+                        if (user.photos[i].comments[j].author == author) {
+                            user.photos[i].comments.slice(j, 1);
+                            break;
+                        }else{
+                            return done(null, "you can not delete this comment");
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        user.save(function (err) {
+            if (err) {
+                return done(err);
+            }
+            return done(null);
+        });
+    })
 }
 
 module.exports.addFollowing = function (u_id, f_id, done) {

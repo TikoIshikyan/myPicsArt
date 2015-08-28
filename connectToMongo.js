@@ -16,9 +16,9 @@ var userSchema = new mySchema({
     followers: [Number],
     followings: [Number],
     photos: [{
-        data: Buffer, contentType: String, title: String, id: Number,
+        data: Buffer, contentType: String, title: String, id: Number, owner_id: Number,
         tags: [String],
-        comments: [{body: String, id: Number, auther: Number, date: {type: Date, default: Date.now}}]
+        comments: [{body: String,  author: Number, date: {type: Date, default: Date.now}}]
     }]
 });
 

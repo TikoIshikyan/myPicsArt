@@ -11,7 +11,6 @@ var cookieParser = require('cookie-parser');
 
 var app = express();
 
-
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(session({
@@ -64,6 +63,7 @@ passport.use(new LocalStrategy(
 
 app.get('/logout', function (req, res) {
     req.logout();
+    req.session.destroy();
     console.log("after logout");
     console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
     console.log("cookies == " + JSON.stringify(req.cookies));
@@ -72,17 +72,21 @@ app.get('/logout', function (req, res) {
 });
 
 app.get('/login', function (req, res) {
-    console.log("in login");
-    console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
-    console.log("cookies == " + JSON.stringify(req.cookies));
-    console.log("headers == " + JSON.stringify(req.headers));
 
-    //res.cookie('var', "popoxakan2");
+    console.log("in login");
+    //console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
+    //console.log("cookies == " + JSON.stringify(req.cookies));
+    //console.log("headers == " + JSON.stringify(req.headers));
+    //console.log(req.url + " " + req.path + " " + req.method)
 
     res.render('form');
+
 })
 
 app.post('/login', function (req, res) {
+        console.log(typeof req.body);
+        console.log(req.body);
+
         passport.authenticate('local', function (err, user, info) {
             if (err) {
                 return res.statusCode(400);
@@ -139,13 +143,14 @@ app.post('/users', function (req, res) {
         contentType: contentType,
         title: title,
         tags: titleToTags(title),
-        id: 0
+        id: 0,
     });
 
 
     mongo.users.findOne({}, {}, {sort: {'id': -1}}, function (err, last_data) {
         if (last_data == null) {
             user.id = 1;
+            user.photos[0].owner_id = user.id;
             queries.add(user, function (err, message) {
                 if (err) {
                     return res.send('Error = ' + err);
@@ -157,6 +162,7 @@ app.post('/users', function (req, res) {
             });
         } else {
             user.id = last_data.id + 1;
+            user.photos[0].owner_id = user.id;
             queries.add(user, function (err, message) {
                 if (err) {
                     return res.send('Error = ' + err)
@@ -185,31 +191,35 @@ app.post('/users/:id/photos', function (req, res) {
     var imgPath = req.body.imgUrl;
     var contentType = imgPath.substring(imgPath.lastIndexOf(".") + 1);
     var title = req.body.title;
-    var photoId;
+    var photoId = 0;
 
-    mongo.users.findOne({id: userId}, {}, function(err, user){
-        if(err){
-           return res.send(err);
-        }
-        if(user.photos.length > 0) {
-            photoId = user.photos[user.photos.length - 1].id;
-        }else{
-            photoId = 0;
-        }
-
-    })
-
-    var user = {
-        id: req.user.id,
-        photo: {data: fs.readFileSync(imgPath), contentType: contentType, title: title, tags: titleToTags(title), id: photoId}
-    };
-
-    queries.addPhoto(user, function (err) {
+    mongo.users.findOne({id: userId}, {}, function (err, user) {
         if (err) {
-            return res.send('Error = ' + err);
+            return res.send(err);
         }
-        return res.send('User successfully updated');
-    });
+        if (user.photos.length > 0) {
+            photoId = user.photos[user.photos.length - 1].id + 1;
+        }
+
+        var user = {
+            id: userId,
+            photo: {
+                data: fs.readFileSync(imgPath),
+                contentType: contentType,
+                title: title,
+                tags: titleToTags(title),
+                id: photoId,
+                owner_id: userId
+            }
+        };
+
+        queries.addPhoto(user, function (err) {
+            if (err) {
+                return res.send('Error = ' + err);
+            }
+            return res.send('photo successfully added');
+        });
+    })
 })
 
 app.put('/users/:id/photos/:p_id', function (req, res) {
@@ -225,29 +235,73 @@ app.put('/users/:id/photos/:p_id', function (req, res) {
         if (err) {
             return res.send('Error = ' + err);
         }
-        return res.send('User successfully updated');
+        return res.send('photo successfully updated');
     });
 })
 
-app.get('/users/:id/photos/:p_id/comments', function(res, req){
+app.get('/users/:id/photos/:p_id/comments', isAuthenticated, function (res, req) {
 
+    var p_id = req.params.p_id;
+    var owner_id = req.params.p_id;
+
+    queries.getComments(p_id, owner_id, function(err, comments){
+        if(err){
+            return res.send('Error = ' + err);
+        }
+        comments.forEach(function(comment){
+            res.write(comment + "\n");
+        })
+        res.end();
+    })
 })
 
 app.post('/users/:id/photos/:p_id/comments', function (req, res) {
 
+    var p_id = req.params.p_id;
+    var owner_id = req.params.id;
+    var comment = {body: req.body.text, author: req.user.id};
+
+    queries.addComment(comment, p_id, owner_id, function(err){
+        if(err){
+            return res.send('Error = ' + err);
+        }
+        return res.send('comment successfully added');
+    })
+
 })
 
-app.put('/users/:id/photos/:p_id/comments/:c_id', function(req, res){
+app.put('/users/:id/photos/:p_id/comments/:c_id', isAuthenticated, function (req, res) {
+    var p_id = req.params.p_id;
+    var owner_id = req.params.id;
+    var c_id = req.params.c_id;
+    var comment = {body: req.body.text, author: req.user.id};
+
+    queries.updateComment(comment, p_id, owner_id, c_id, function(err, message){
+        if(err){
+            return res.send('Error = ' + err);
+        }
+        return res.send('comment successfully updated');
+    })
 
 })
 
-app.delete('/users/:id/photos/:p_id/comments/:c_id', function(req, res){
+app.delete('/users/:id/photos/:p_id/comments/:c_id', isAuthenticated, function (req, res) {
 
+    var p_id = req.params.p_id;
+    var owner_id = req.params.id;
+    var c_id = req.params.c_id;
+
+    queries.deleteComment(p_id, owner_id, c_id, req.user.id, function(err, message){
+        if(err){
+            return res.send('Error = ' + err);
+        }
+        return res.send('comment successfully deleted');
+    })
 })
 
-app.post('/users/:id/following', function (req, res) {
+app.post('/users/:id/following', isAuthenticated, function (req, res) {
 
-    var userId = req.params.id;
+    var userId = req.user.id;
     var followingId = req.body.followingId;
 
     queries.addFollowing(userId, followingId, function (err, messege) {
@@ -263,7 +317,7 @@ app.post('/users/:id/following', function (req, res) {
 })
 
 
-app.delete('/users/:id/following', function (req, res) {
+app.delete('/users/:id/following', isAuthenticated, function (req, res) {
 
     var userId = req.params.id;
     var followingId = req.body.followingId;
