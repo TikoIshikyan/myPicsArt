@@ -130,19 +130,19 @@ passport.deserializeUser(function (id, done) {
 
 var isAuthenticated = function (req, res, next) {
     if (req.isAuthenticated()) {
-        return next();
+        return next(
+
+        );
     }
     res.redirect('/login');
 }
+
 
 app.get('/login', function (req, res) {
     res.render('log');
 })
 
 app.post('/login', function (req, res) {
-
-    console.log(typeof req.body);
-    console.log(req.body);
 
     passport.authenticate('login', function (err, user, info) {
         if (err) {
@@ -386,6 +386,8 @@ app.delete('/users/:id/following', isAuthenticated, function (req, res) {
 
 app.get('/users/:id', isAuthenticated, function (req, res) {
 
+    res.render('home', {name: req.user.name, sname: req.user.sname, id: req.user.id, photo: req.user.photos[0].data});
+
     console.log("in users");
     console.log("sessions == " + req.sessionID + " " + JSON.stringify(req.session));
     console.log("cookies == " + JSON.stringify(req.cookies));
@@ -395,26 +397,30 @@ app.get('/users/:id', isAuthenticated, function (req, res) {
     //var user_id = req.query.id;
     //var user_id = req.param('id');
     var user_id = req.user.id;
+    //if(user_id != req.user.id){
+    //
+    //}
+    /*
+     queries.getUser(user_id, function (err, user) {
+     if (err) {
+     return res.send("Error + " + err);
+     }
 
-    queries.getUser(user_id, function (err, user) {
-        if (err) {
-            return res.send("Error + " + err);
-        }
-
-        //console.log(user);
-        res.write("id: " + user.id + "\n");
-        res.write("name: " + user.name + "\n");
-        res.write("surname: " + user.sname + "\n");
-        //res.write(user.sname);
-        res.write("email: " + user.email + "\n");
-        //res.write(user.email + "");
-        res.write("followers: " + user.followers.toString() + "\n");
-        res.write("followings: " + user.followings.toString() + "\n");
-        //res.contentType('jpg');
-        //res.write(user.photos[1].data);
-        //res.write(user.photos[1].data);
-        res.end()
-    });
+     //console.log(user);
+     res.write("id: " + user.id + "\n");
+     res.write("name: " + user.name + "\n");
+     res.write("surname: " + user.sname + "\n");
+     //res.write(user.sname);
+     res.write("email: " + user.email + "\n");
+     //res.write(user.email + "");
+     res.write("followers: " + user.followers.toString() + "\n");
+     res.write("followings: " + user.followings.toString() + "\n");
+     //res.contentType('jpg');
+     //res.write(user.photos[1].data);
+     //res.write(user.photos[1].data);
+     res.end()
+     });
+     */
 })
 
 app.get('/logout', function (req, res) {
